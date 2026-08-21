@@ -18,7 +18,7 @@ class Task(BaseModel):
     login_url: str = ""
     captcha_mode: Literal["auto", "none", "manual"] = "auto"
     output_dir: str = ""
-    import_after: bool = False
+    system: str = ""
     enabled: bool = True
     headless: bool = False
 

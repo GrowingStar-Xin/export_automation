@@ -1,29 +1,59 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createTask, deleteTask, listTasks, streamRun, updateTask } from './api'
+import { createTask, deleteTask, importFiles, listTasks, streamRun, updateTask } from './api'
 import type { RunEvent, Task, TaskInput } from './types'
 import StatusPills from './components/StatusPills'
 import TaskList from './components/TaskList'
 import TaskForm from './components/TaskForm'
 import Console from './components/Console'
 
+interface Downloaded {
+  system: string
+  files: string[]
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [events, setEvents] = useState<RunEvent[]>([])
   const [editing, setEditing] = useState<Task | null | undefined>(undefined)
   const [running, setRunning] = useState(false)
+  const [downloaded, setDownloaded] = useState<Downloaded[]>([])
+  const [importing, setImporting] = useState(false)
 
   const reload = useCallback(() => { listTasks().then(setTasks).catch(() => {}) }, [])
   useEffect(() => { reload() }, [reload])
 
   const run = async (ids: string[]) => {
     setEvents([])
+    setDownloaded([])
     setRunning(true)
     try {
-      await streamRun(ids, e => setEvents(prev => [...prev, e]))
+      await streamRun(ids, e => {
+        setEvents(prev => [...prev, e])
+        if (e.type === 'task_end' && e.ok && e.files.length) {
+          setDownloaded(prev => [...prev, { system: e.system, files: e.files }])
+        }
+      })
     } catch (err) {
       setEvents(prev => [...prev, { type: 'log', task_id: '', line: '请求失败：' + (err as Error).message, level: 'err' }])
     } finally {
       setRunning(false)
+    }
+  }
+
+  const handleImport = async () => {
+    setImporting(true)
+    try {
+      const r = await importFiles(downloaded)
+      if (r.ok) {
+        setEvents(prev => [...prev, { type: 'log', task_id: '', line: '✓ 入库完成', level: 'ok' }])
+      } else {
+        setEvents(prev => [...prev, { type: 'log', task_id: '', line: '✕ 入库失败：' + (r.error || '未知错误'), level: 'err' }])
+      }
+    } catch (err) {
+      setEvents(prev => [...prev, { type: 'log', task_id: '', line: '✕ 入库失败：' + (err as Error).message, level: 'err' }])
+    } finally {
+      setImporting(false)
+      setDownloaded([])
     }
   }
 
@@ -76,6 +106,18 @@ export default function App() {
         <section className="panel">
           <div className="panel-head"><span className="panel-title">运行日志</span></div>
           <Console events={events} />
+          {downloaded.length > 0 && (
+            <div className="import-prompt">
+              <div className="q">已下载 {downloaded.length} 组文件，是否入库？</div>
+              <div className="meta">{downloaded.map(d => `${d.system}: ${d.files.join('、')}`).join('；')}</div>
+              <div className="actions">
+                <button className="btn-ok" disabled={importing} onClick={handleImport}>
+                  {importing ? '入库中…' : '是，入库'}
+                </button>
+                <button className="btn-no" onClick={() => setDownloaded([])}>暂不入库</button>
+              </div>
+            </div>
+          )}
         </section>
       </main>
 

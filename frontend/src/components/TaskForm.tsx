@@ -3,7 +3,7 @@ import type { Task, TaskInput } from '../types'
 
 const EMPTY: TaskInput = {
   name: '', url: '', button_text: '', button_selector: '', username: '', password: '',
-  login_url: '', captcha_mode: 'auto', output_dir: '', import_after: false, enabled: true, headless: false,
+  login_url: '', captcha_mode: 'auto', output_dir: '', system: '', enabled: true, headless: false,
 }
 
 function toInput(t: Task): TaskInput {
@@ -11,7 +11,7 @@ function toInput(t: Task): TaskInput {
     name: t.name, url: t.url, button_text: t.button_text, button_selector: t.button_selector,
     username: t.username, password: t.password, login_url: t.login_url,
     captcha_mode: t.captcha_mode, output_dir: t.output_dir,
-    import_after: t.import_after, enabled: t.enabled, headless: t.headless,
+    system: t.system, enabled: t.enabled, headless: t.headless,
   }
 }
 
@@ -34,6 +34,7 @@ const ic = {
   code: <Icon><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></Icon>,
   login: <Icon><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" y1="12" x2="3" y2="12" /></Icon>,
   captcha: <Icon><circle cx="12" cy="12" r="3" /><path d="M12 1l9 4-9 4-9-4 9-4z" /></Icon>,
+  db: <Icon><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></Icon>,
 }
 
 function Field({ label, required, hint, icon, children }: {
@@ -81,6 +82,9 @@ export default function TaskForm({ initial, onSave, onCancel }: {
           <Field label="任务名称" required icon={ic.tag}>
             <input type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如：客户A日报" />
           </Field>
+          <Field label="系统标识" hint="用于数据库表名，留空用任务名" icon={ic.db}>
+            <input type="text" value={form.system} onChange={e => set('system', e.target.value)} placeholder="如 customer_a" />
+          </Field>
           <Field label="目标页面 URL" required icon={ic.link}>
             <input type="text" value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://…/含导出按钮的页面" />
           </Field>
@@ -116,7 +120,6 @@ export default function TaskForm({ initial, onSave, onCancel }: {
                 </select>
               </Field>
               <div className="checks">
-                <label className="check"><input type="checkbox" checked={form.import_after} onChange={e => set('import_after', e.target.checked)} /> 下载后入库</label>
                 <label className="check"><input type="checkbox" checked={form.enabled} onChange={e => set('enabled', e.target.checked)} /> 启用（纳入「运行全部」）</label>
               </div>
             </div>

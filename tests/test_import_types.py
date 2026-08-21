@@ -2,7 +2,7 @@ import csv
 
 import openpyxl
 
-from app.import_data import infer_type, detect_header, sanitize, table_name, read_csv_sheets, read_xlsx_sheets
+from app.import_data import infer_type, detect_header, sanitize, system_table_name, read_csv_sheets, read_xlsx_sheets, _group_by_signature
 
 
 def test_infer_type():
@@ -34,10 +34,23 @@ def test_sanitize_dedup_and_digit_prefix():
     assert sanitize("2024年", used) == "c_2024年"
 
 
-def test_table_name():
-    assert table_name("订单", "Sheet1", 1) == "订单"
-    assert table_name("订单", "明细", 2) == "订单_明细"
-    assert table_name("订单", "明细", 2, prefix="exp") == "exp_订单_明细"
+def test_system_table_name():
+    assert system_table_name("订单", "", False) == "订单"
+    assert system_table_name("订单", "明细", True) == "订单_明细"
+    assert system_table_name("订单", "明细", True, prefix="exp") == "exp_订单_明细"
+    assert system_table_name("2024", "", False) == "t_2024"
+
+
+def test_group_by_signature():
+    sheets = [
+        ("Sheet1", ["a", "b"], [["1", "2"]]),
+        ("Sheet2", ["a", "b"], [["3", "4"]]),   # 同结构
+        ("Sheet3", ["x", "y"], [["5", "6"]]),   # 不同结构
+    ]
+    groups = _group_by_signature(sheets)
+    assert len(groups) == 2
+    assert len(groups[("a", "b")]) == 2
+    assert len(groups[("x", "y")]) == 1
 
 
 def test_read_csv_sheets(tmp_path):

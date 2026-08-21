@@ -104,20 +104,33 @@ def create_app(store: TaskStore | None = None) -> FastAPI:
                         line = q.get_nowait()
                         yield _ndjson({"type": "log", "task_id": t.id, "line": line, "level": classify(line)})
                     result = fut.result()
-                    imported = None
-                    if result.ok and t.import_after and result.files:
-                        imported = import_data.import_files(result.files)
                     if result.ok:
                         summary["ok"] += 1
                     else:
                         summary["failed"] += 1
                     yield _ndjson({"type": "task_end", "task_id": t.id, "ok": result.ok,
-                                   "files": result.files, "imported": imported, "error": result.error})
+                                   "files": result.files, "system": t.system or t.name, "error": result.error})
                 yield _ndjson({"type": "done", "summary": summary})
             finally:
                 running = False
 
         return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+    @app.post("/api/import")
+    async def do_import(body: dict):
+        items = (body or {}).get("items") or []
+        results = []
+        try:
+            for it in items:
+                system = (it.get("system") or "").strip()
+                files = it.get("files") or []
+                if not files:
+                    continue
+                s = await asyncio.to_thread(import_data.import_files, system or "default", files)
+                results.append(s)
+        except Exception as e:
+            return {"ok": False, "error": str(e), "results": results}
+        return {"ok": True, "results": results}
 
     # 静态托管（生产构建后）
     dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")

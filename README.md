@@ -63,9 +63,9 @@ RELOAD=0 python3 -m app.main      # FastAPI 托管 dist + API（不 reload）
 
 ## 使用流程
 
-1. 点「新增任务」：填任务名称、目标页面 URL、导出按钮文字、输出目录（留空 = `downloads/名称`）；高级选项里可填登录账号/密码、CSS 选择器、验证码模式、是否入库。
+1. 点「新增任务」：填任务名称、系统标识（数据库表名，留空用任务名）、目标页面 URL、导出按钮文字、输出目录（留空 = `downloads/名称`）；高级选项里可填登录账号/密码、CSS 选择器、验证码模式。
 2. 点「运行全部」（或单条「运行」）→ 后端拉起 Chrome 逐任务执行，控制台实时显示每任务日志。
-3. 文件落到各任务输出目录；勾选「下载后入库」的任务会再写入 MySQL（每个 sheet 自动建表 + 类型推断）。
+3. 跑完后弹窗询问是否入库；确认后按「系统标识」动态建表入库——同一系统追加到同一张表（不重复建表），结构相同的 sheet 合并、结构不同的分表。
 
 ## 接口
 
@@ -77,6 +77,7 @@ RELOAD=0 python3 -m app.main      # FastAPI 托管 dist + API（不 reload）
 | PUT | `/api/tasks/{id}` | 更新任务 |
 | DELETE | `/api/tasks/{id}` | 删除任务 |
 | POST | `/api/run` | 批量执行（NDJSON 流式返回逐任务日志） |
+| POST | `/api/import` | 入库（body `{items:[{system,files}]}`） |
 
 ## 环境变量（.env）
 

@@ -14,7 +14,7 @@ export default function TaskList({ tasks, onEdit, onDelete, onRunOne, onToggle }
     <table className="task-table">
       <thead>
         <tr>
-          <th>启用</th><th>名称</th><th>URL</th><th>按钮</th><th>输出目录</th><th>入库</th><th>操作</th>
+          <th>启用</th><th>名称</th><th>系统</th><th>URL</th><th>按钮</th><th>输出目录</th><th>操作</th>
         </tr>
       </thead>
       <tbody>
@@ -22,10 +22,10 @@ export default function TaskList({ tasks, onEdit, onDelete, onRunOne, onToggle }
           <tr key={t.id}>
             <td><input type="checkbox" checked={t.enabled} onChange={e => onToggle(t.id, e.target.checked)} /></td>
             <td>{t.name}</td>
+            <td>{t.system || '—'}</td>
             <td className="mono">{t.url}</td>
             <td>{t.button_text || t.button_selector}</td>
             <td className="mono">{t.output_dir || 'downloads/' + t.name}</td>
-            <td>{t.import_after ? '是' : ''}</td>
             <td className="ops">
               <button onClick={() => onRunOne(t.id)}>运行</button>
               <button onClick={() => onEdit(t)}>编辑</button>

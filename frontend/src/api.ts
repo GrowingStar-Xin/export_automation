@@ -28,6 +28,16 @@ export async function deleteTask(id: string): Promise<void> {
   await fetch('/api/tasks/' + id, { method: 'DELETE' })
 }
 
+export interface ImportItem {
+  system: string
+  files: string[]
+}
+
+export async function importFiles(items: ImportItem[]): Promise<{ ok: boolean; error?: string; results?: unknown[] }> {
+  const r = await fetch('/api/import', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ items }) })
+  return r.json()
+}
+
 export async function streamRun(ids: string[], onEvent: (e: RunEvent) => void): Promise<void> {
   const r = await fetch('/api/run', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids }) })
   if (!r.ok || !r.body) throw new Error('HTTP ' + r.status)

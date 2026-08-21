@@ -6,7 +6,7 @@ from app.tasks import Task, TaskStore
 def test_valid_task():
     t = Task(name="a", url="https://x.com/report", button_text="导出")
     assert t.captcha_mode == "auto"
-    assert t.import_after is False
+    assert t.system == ""
 
 
 def test_url_must_be_http():
@@ -28,8 +28,8 @@ def test_store_roundtrip(tmp_path):
     assert len(loaded) == 1
     assert loaded[0].name == "客户A"
     # 更新（id 不可改）
-    store.update(t.id, {"import_after": True})
-    assert store.get(t.id).import_after is True
+    store.update(t.id, {"system": "customer_a"})
+    assert store.get(t.id).system == "customer_a"
     # 删除
     assert store.delete(t.id) is True
     assert store.delete(t.id) is False

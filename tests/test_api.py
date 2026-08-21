@@ -18,8 +18,8 @@ def test_task_crud(tmp_path):
     r = c.get("/api/tasks")
     assert len(r.json()["tasks"]) == 1
 
-    r = c.put(f"/api/tasks/{task['id']}", json={"import_after": True})
-    assert r.json()["task"]["import_after"] is True
+    r = c.put(f"/api/tasks/{task['id']}", json={"system": "customer_a"})
+    assert r.json()["task"]["system"] == "customer_a"
 
     r = c.delete(f"/api/tasks/{task['id']}")
     assert r.json()["ok"] is True

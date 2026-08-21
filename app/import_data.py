@@ -148,14 +148,14 @@ def infer_type(vals: list[str]) -> str:
     return "TEXT" if maxlen > 255 else "VARCHAR(255)"
 
 
-def table_name(file_stem: str, sheet: str, total_sheets: int, prefix: str = "") -> str:
+def system_table_name(system: str, sheet: str, multiple: bool, prefix: str = "") -> str:
     def clean(s):
         s = re.sub(r"[^\w一-鿿]+", "_", s, flags=re.UNICODE)
         s = re.sub(r"_+", "_", s).strip("_")
         return s or "t"
 
-    parts = [clean(file_stem)]
-    if not (total_sheets == 1 and re.match(r"^sheet\d+$", sheet, re.I)):
+    parts = [clean(system)]
+    if multiple and sheet:
         parts.append(clean(sheet))
     name = "_".join(parts)
     if name[0].isdigit():
@@ -196,12 +196,37 @@ def _extract_rows(grid: dict, header_row: int, ncols: int) -> list[list[str]]:
     return rows
 
 
-def import_files(paths: list[str]) -> dict:
+def _read_sheets(paths: list[str]) -> list[tuple[str, list[str], list[list[str]]]]:
+    result = []
+    for f in collect_files(paths):
+        sheets = read_csv_sheets(f) if f.lower().endswith(".csv") else read_xlsx_sheets(f)
+        for sheet, grid in sheets:
+            header_row, headers = detect_header(grid)
+            if header_row is None:
+                continue
+            used = set()
+            cols = [sanitize(h, used) for h in headers]
+            ncols = len(cols)
+            rows = _extract_rows(grid, header_row, ncols)
+            result.append((sheet, cols, rows))
+    return result
+
+
+def _group_by_signature(sheets):
+    groups = {}
+    for sheet, cols, rows in sheets:
+        groups.setdefault(tuple(cols), []).append((sheet, rows))
+    return groups
+
+
+def import_files(system: str, paths: list[str]) -> dict:
     if not settings.db_pass:
         raise RuntimeError("未配置 DB_PASS，无法入库（请在 .env 中设置）")
-    files = collect_files(paths)
-    if not files:
+    sheets = _read_sheets(paths)
+    if not sheets:
         return {"tables": [], "total_rows": 0}
+    groups = _group_by_signature(sheets)
+    multiple = len(groups) > 1
 
     conn = mysql.connector.connect(host=settings.db_host, port=settings.db_port, user=settings.db_user,
                                    password=settings.db_pass, database=settings.db_name)
@@ -209,38 +234,32 @@ def import_files(paths: list[str]) -> dict:
     summary = []
     total_rows = 0
     try:
-        for f in files:
-            stem = os.path.splitext(os.path.basename(f))[0]
-            sheets = read_csv_sheets(f) if f.lower().endswith(".csv") else read_xlsx_sheets(f)
-            if not sheets:
-                continue
-            for sheet, grid in sheets:
-                header_row, headers = detect_header(grid)
-                if header_row is None:
-                    continue
-                used = set()
-                cols = [sanitize(h, used) for h in headers]
-                ncols = len(cols)
-                rows = _extract_rows(grid, header_row, ncols)
-                coltypes = []
-                for ci in range(ncols):
-                    sample = [r[ci] for r in rows if r[ci] != ""][:500]
-                    coltypes.append(infer_type(sample))
-                tname = table_name(stem, sheet, len(sheets), settings.table_prefix)
-                coldefs = ", ".join(f"`{c}` {t}" for c, t in zip(cols, coltypes))
-                ddl = f"CREATE TABLE `{tname}` (__pk BIGINT AUTO_INCREMENT PRIMARY KEY, {coldefs}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-                cur.execute(f"DROP TABLE IF EXISTS `{tname}`")
-                cur.execute(ddl)
-                placeholders = ", ".join(["%s"] * ncols)
-                collist = ", ".join(f"`{c}`" for c in cols)
-                sql = f"INSERT INTO `{tname}` ({collist}) VALUES ({placeholders})"
-                data = [[(None if v == "" else v) for v in r] for r in rows]
-                if data:
-                    cur.executemany(sql, data)
-                conn.commit()
-                summary.append({"table": tname, "rows": len(data), "columns": ncols,
-                                "source": f"{os.path.basename(f)}/{sheet}"})
-                total_rows += len(data)
+        for sig, members in groups.items():
+            cols = list(sig)
+            rows = [r for (_s, rs) in members for r in rs]
+            coltypes = [infer_type([r[i] for r in rows if i < len(r) and r[i] != ""][:500])
+                        for i in range(len(cols))]
+            sheet_name = members[0][0]
+            tname = system_table_name(system, sheet_name, multiple, settings.table_prefix)
+            coldefs = ", ".join(f"`{c}` {t}" for c, t in zip(cols, coltypes))
+            ddl = (f"CREATE TABLE IF NOT EXISTS `{tname}` "
+                   f"(__pk BIGINT AUTO_INCREMENT PRIMARY KEY, {coldefs}) "
+                   f"ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+            cur.execute(ddl)
+            cur.execute(f"SHOW COLUMNS FROM `{tname}`")
+            existing = {row[0] for row in cur.fetchall()}
+            for c, t in zip(cols, coltypes):
+                if c not in existing:
+                    cur.execute(f"ALTER TABLE `{tname}` ADD COLUMN `{c}` {t}")
+            placeholders = ", ".join(["%s"] * len(cols))
+            collist = ", ".join(f"`{c}`" for c in cols)
+            sql = f"INSERT INTO `{tname}` ({collist}) VALUES ({placeholders})"
+            data = [[(None if v == "" else v) for v in r] for r in rows]
+            if data:
+                cur.executemany(sql, data)
+            conn.commit()
+            summary.append({"table": tname, "rows": len(data), "columns": len(cols)})
+            total_rows += len(data)
     finally:
         cur.close()
         conn.close()
