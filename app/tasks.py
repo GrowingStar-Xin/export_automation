@@ -4,7 +4,7 @@ import secrets
 import time
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class Task(BaseModel):
@@ -21,6 +21,11 @@ class Task(BaseModel):
     system: str = ""
     enabled: bool = True
     headless: bool = False
+
+    @field_validator("name", "url", "button_text", "button_selector", "login_url", "output_dir", "system", mode="before")
+    @classmethod
+    def _strip_whitespace(cls, v):
+        return v.strip() if isinstance(v, str) else v
 
     @model_validator(mode="after")
     def _validate(self):

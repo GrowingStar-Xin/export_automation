@@ -39,3 +39,13 @@ def test_create_ignores_client_id(tmp_path):
     store = TaskStore(str(tmp_path / "t.json"))
     t = store.create({"id": "should_be_overridden", "name": "a", "url": "https://x.com", "button_text": "导出"})
     assert t.id != "should_be_overridden"
+
+
+def test_trims_whitespace():
+    t = Task(name="  客户A  ", url="  https://x.com  ", button_text=" 导出 ",
+             output_dir=" /tmp/out ", system=" customer_a ")
+    assert t.name == "客户A"
+    assert t.url == "https://x.com"
+    assert t.button_text == "导出"
+    assert t.output_dir == "/tmp/out"
+    assert t.system == "customer_a"
