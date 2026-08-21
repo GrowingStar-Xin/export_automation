@@ -79,16 +79,16 @@ export default function TaskForm({ initial, onSave, onCancel }: {
 
         <div className="tf-body">
           <Field label="任务名称" required icon={ic.tag}>
-            <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如：客户A日报" />
+            <input type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="例如：客户A日报" />
           </Field>
           <Field label="目标页面 URL" required icon={ic.link}>
-            <input value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://…/含导出按钮的页面" />
+            <input type="text" value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://…/含导出按钮的页面" />
           </Field>
           <Field label="导出按钮文字" required icon={ic.check}>
-            <input value={form.button_text} onChange={e => set('button_text', e.target.value)} placeholder="按钮上显示的字，如「导出」「下载」" />
+            <input type="text" value={form.button_text} onChange={e => set('button_text', e.target.value)} placeholder="按钮上显示的字，如「导出」「下载」" />
           </Field>
           <Field label="输出目录" hint="留空 = downloads/名称" icon={ic.folder}>
-            <input value={form.output_dir} onChange={e => set('output_dir', e.target.value)} placeholder="downloads/客户A" />
+            <input type="text" value={form.output_dir} onChange={e => set('output_dir', e.target.value)} placeholder="downloads/客户A" />
           </Field>
 
           <details className="tf-advanced">
@@ -96,17 +96,17 @@ export default function TaskForm({ initial, onSave, onCancel }: {
             <div className="adv-body">
               <div className="field-row">
                 <Field label="用户名" icon={ic.user}>
-                  <input value={form.username} onChange={e => set('username', e.target.value)} placeholder="可选" />
+                  <input type="text" value={form.username} onChange={e => set('username', e.target.value)} placeholder="可选" />
                 </Field>
                 <Field label="密码" icon={ic.lock}>
                   <input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="可选" />
                 </Field>
               </div>
               <Field label="导出按钮 CSS 选择器" hint="优先级最高，留空用按钮文字" icon={ic.code}>
-                <input value={form.button_selector} onChange={e => set('button_selector', e.target.value)} placeholder=".export-btn 或 #download" />
+                <input type="text" value={form.button_selector} onChange={e => set('button_selector', e.target.value)} placeholder=".export-btn 或 #download" />
               </Field>
               <Field label="登录页 URL" hint="留空 = 目标页同源 /login" icon={ic.login}>
-                <input value={form.login_url} onChange={e => set('login_url', e.target.value)} placeholder="http://…/login" />
+                <input type="text" value={form.login_url} onChange={e => set('login_url', e.target.value)} placeholder="http://…/login" />
               </Field>
               <Field label="验证码处理" icon={ic.captcha}>
                 <select value={form.captcha_mode} onChange={e => set('captcha_mode', e.target.value as TaskInput['captcha_mode'])}>
