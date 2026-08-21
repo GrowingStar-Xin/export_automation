@@ -77,13 +77,32 @@ main { display: grid; grid-template-columns: 1fr; gap: 22px; margin-top: 24px }
 .summary { margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: rgba(45, 212, 191, .08); color: var(--accent) }
 
 /* 表单弹层 */
-.task-form-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; z-index: 100 }
-.task-form { width: 520px; max-width: 100%; background: var(--surface); border: 1px solid var(--line2); border-radius: 16px; padding: 22px; max-height: calc(100vh - 80px); overflow: auto }
-.task-form h3 { margin: 0 0 16px; font-size: 15px }
-.task-form label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 12px }
-.task-form input[type=text], .task-form input[type=password], .task-form select { display: block; width: 100%; margin-top: 6px; padding: 10px 12px; background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; color: var(--text); font-size: 14px; font-family: var(--sans) }
-.task-form input:focus, .task-form select:focus { outline: none; border-color: var(--accent) }
-.task-form details { margin-bottom: 12px }
-.task-form summary { cursor: pointer; font-size: 12px; color: var(--accent); margin-bottom: 8px }
-.task-form label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text) }
-.task-form .form-actions { display: flex; gap: 10px; margin-top: 16px }
+.task-form-overlay { position: fixed; inset: 0; background: rgba(4, 8, 14, .7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 32px 20px; z-index: 100 }
+.task-form { width: 580px; max-width: 100%; max-height: 88vh; display: flex; flex-direction: column; background: linear-gradient(180deg, var(--surface), var(--bg2)); border: 1px solid var(--line2); border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); overflow: hidden; animation: pop .18s ease-out }
+.tf-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--line) }
+.tf-head h3 { margin: 0; font-size: 15px; font-weight: 600 }
+.tf-close { border: none; background: transparent; color: var(--dim); font-size: 16px; line-height: 1; cursor: pointer; width: 28px; height: 28px; border-radius: 8px }
+.tf-close:hover { color: var(--text); background: var(--surface2) }
+.tf-body { padding: 22px; overflow: auto }
+.tf-body .field { margin-bottom: 16px }
+.tf-body label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px; letter-spacing: .02em }
+.tf-body .req { color: var(--accent) }
+.tf-body .hint { font-weight: 400; color: var(--dim); margin-left: 6px }
+.tf-body input[type=text], .tf-body input[type=password], .tf-body select { width: 100%; padding: 11px 13px; background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px; color: var(--text); font-size: 14px; font-family: var(--sans); transition: border-color .15s, box-shadow .15s }
+.tf-body input:focus, .tf-body select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45, 212, 191, .14) }
+.tf-body input::placeholder { color: var(--dim) }
+.tf-body select { appearance: none; cursor: pointer }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+@media (max-width: 560px) { .field-row { grid-template-columns: 1fr } }
+.tf-advanced { border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); overflow: hidden }
+.tf-advanced summary { cursor: pointer; padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 7px; user-select: none }
+.tf-advanced summary::-webkit-details-marker { display: none }
+.tf-advanced summary::before { content: '▸'; color: var(--accent); font-size: 13px; transition: transform .15s }
+.tf-advanced[open] summary::before { transform: rotate(90deg) }
+.adv-body { padding: 4px 14px 16px }
+.adv-body .field { margin-top: 14px; margin-bottom: 0 }
+.checks { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px }
+.check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text); cursor: pointer }
+.check input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0 }
+.tf-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line) }
+@keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98) } to { opacity: 1; transform: none } }
