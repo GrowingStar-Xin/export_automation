@@ -49,7 +49,7 @@ cp tasks.example.json tasks.json  # 任务列表（含站点密码，不提交�
 
 ```bash
 uvicorn app.main:app --reload    # 后端 http://localhost:8787
-cd frontend && npm run dev       # 前端 http://localhost:5173（/api 代理到 8787）
+cd frontend && npm run dev       # 前端 http://localhost:5174（/api 代理到 8787）
 ```
 
 生产（单进程）：

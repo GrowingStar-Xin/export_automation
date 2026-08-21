@@ -47,7 +47,7 @@ def create_app(store: TaskStore | None = None) -> FastAPI:
     ts = store or TaskStore(settings.tasks_file)
 
     @app.get("/api/status")
-    async def status(url: str = "http://localhost:5173"):
+    async def status(url: str = ""):
         db = await asyncio.to_thread(_port_open, settings.db_host, settings.db_port)
         site = await asyncio.to_thread(_check_site, url)
         return {"db": db, "site": site}

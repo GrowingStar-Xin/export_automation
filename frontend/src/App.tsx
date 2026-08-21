@@ -56,7 +56,7 @@ export default function App() {
           <div className="t1">通用导出自动化 · 操作台</div>
           <div className="t2">Universal Export Console</div>
         </div>
-        <StatusPills url={tasks[0]?.url || 'http://localhost:5173'} />
+        <StatusPills url={tasks[0]?.url || ''} />
       </header>
 
       <main>
