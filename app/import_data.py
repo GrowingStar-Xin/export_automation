@@ -1,7 +1,15 @@
 import csv
+import glob
+import os
 import re
+import shutil
+import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
+
+import mysql.connector
+
+from .config import settings
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -154,3 +162,86 @@ def table_name(file_stem: str, sheet: str, total_sheets: int, prefix: str = "") 
         name = "t_" + name
     name = name[:60]
     return (prefix + "_" + name) if prefix else name
+
+
+def collect_files(args: list[str]) -> list[str]:
+    files = []
+    for a in args:
+        if os.path.isdir(a):
+            files += sorted(glob.glob(os.path.join(a, "*.xlsx")) + glob.glob(os.path.join(a, "*.xls")) + glob.glob(os.path.join(a, "*.csv")))
+        elif a.lower().endswith(".zip"):
+            dest = tempfile.mkdtemp(prefix="xlsx_import_")
+            with zipfile.ZipFile(a) as z:
+                z.extractall(dest)
+            files += sorted(glob.glob(os.path.join(dest, "**", "*.xlsx"), recursive=True)
+                            + glob.glob(os.path.join(dest, "**", "*.xls"), recursive=True)
+                            + glob.glob(os.path.join(dest, "**", "*.csv"), recursive=True))
+        elif a.lower().endswith((".xlsx", ".xls", ".csv")):
+            files.append(a)
+    seen, out = set(), []
+    for f in files:
+        if f not in seen:
+            seen.add(f)
+            out.append(f)
+    return out
+
+
+def _extract_rows(grid: dict, header_row: int, ncols: int) -> list[list[str]]:
+    rows = []
+    maxr = max(r for (r, _c) in grid)
+    for r in range(header_row + 1, maxr + 1):
+        vals = [str(grid.get((r, col_letter(cn)), "")).strip() for cn in range(1, ncols + 1)]
+        if any(v != "" for v in vals):
+            rows.append(vals)
+    return rows
+
+
+def import_files(paths: list[str]) -> dict:
+    if not settings.db_pass:
+        raise RuntimeError("未配置 DB_PASS，无法入库（请在 .env 中设置）")
+    files = collect_files(paths)
+    if not files:
+        return {"tables": [], "total_rows": 0}
+
+    conn = mysql.connector.connect(host=settings.db_host, port=settings.db_port, user=settings.db_user,
+                                   password=settings.db_pass, database=settings.db_name)
+    cur = conn.cursor()
+    summary = []
+    total_rows = 0
+    try:
+        for f in files:
+            stem = os.path.splitext(os.path.basename(f))[0]
+            sheets = read_csv_sheets(f) if f.lower().endswith(".csv") else read_xlsx_sheets(f)
+            if not sheets:
+                continue
+            for sheet, grid in sheets:
+                header_row, headers = detect_header(grid)
+                if header_row is None:
+                    continue
+                used = set()
+                cols = [sanitize(h, used) for h in headers]
+                ncols = len(cols)
+                rows = _extract_rows(grid, header_row, ncols)
+                coltypes = []
+                for ci in range(ncols):
+                    sample = [r[ci] for r in rows if r[ci] != ""][:500]
+                    coltypes.append(infer_type(sample))
+                tname = table_name(stem, sheet, len(sheets), settings.table_prefix)
+                coldefs = ", ".join(f"`{c}` {t}" for c, t in zip(cols, coltypes))
+                ddl = f"CREATE TABLE `{tname}` (__pk BIGINT AUTO_INCREMENT PRIMARY KEY, {coldefs}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+                cur.execute(f"DROP TABLE IF EXISTS `{tname}`")
+                cur.execute(ddl)
+                placeholders = ", ".join(["%s"] * ncols)
+                collist = ", ".join(f"`{c}`" for c in cols)
+                sql = f"INSERT INTO `{tname}` ({collist}) VALUES ({placeholders})"
+                data = [[(None if v == "" else v) for v in r] for r in rows]
+                if data:
+                    cur.executemany(sql, data)
+                conn.commit()
+                summary.append({"table": tname, "rows": len(data), "columns": ncols,
+                                "source": f"{os.path.basename(f)}/{sheet}"})
+                total_rows += len(data)
+    finally:
+        cur.close()
+        conn.close()
+    return {"tables": summary, "total_rows": total_rows}
