@@ -13,6 +13,7 @@ from .config import settings
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 INT_RE = re.compile(r"^-?\d+$")
 FLOAT_RE = re.compile(r"^-?(\d+\.\d*|\.\d+|\d+[eE][+-]?\d+|\d+\.\d+[eE][+-]?\d+)$")
@@ -51,7 +52,7 @@ def read_xlsx_sheets(path: str) -> list[tuple[str, dict]]:
     rels = {}
     if "xl/_rels/workbook.xml.rels" in z.namelist():
         rr = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
-        for rel in rr.findall(f"{REL_NS}Relationship"):
+        for rel in rr.findall(f"{PKG_REL_NS}Relationship"):
             rels[rel.get("Id")] = rel.get("Target")
     result = []
     for name, rid in sheets:

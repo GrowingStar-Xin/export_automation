@@ -74,3 +74,24 @@ def test_read_xlsx_sheets(tmp_path):
     assert sheets[0][0] == "明细"
     assert sheets[0][1][(1, "A")] == "a"
     assert sheets[0][1][(2, "B")] == "2"
+
+
+def test_read_xlsx_multi_sheet_distinct(tmp_path):
+    # 回归：多 sheet 必须读到各自的数据（旧 bug 会把所有 sheet 都读成 sheet1）
+    p = tmp_path / "multi.xlsx"
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Sheet1"
+    ws1.append(["序列", "数量"])
+    ws1.append(["AAAA", "5"])
+    ws2 = wb.create_sheet("Sheet2")
+    ws2.append(["序列", "纯度"])
+    ws2.append(["BBBB", "98"])
+    wb.save(p)
+    sheets = read_xlsx_sheets(str(p))
+    assert len(sheets) == 2
+    assert sheets[0][0] == "Sheet1"
+    assert sheets[1][0] == "Sheet2"
+    assert sheets[0][1][(2, "A")] == "AAAA"
+    assert sheets[1][1][(2, "A")] == "BBBB"
+    assert sheets[1][1][(1, "B")] == "纯度"
