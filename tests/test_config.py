@@ -4,7 +4,7 @@ from app.config import Settings, resolve_output_dir
 def test_settings_defaults():
     s = Settings(_env_file=None)  # 不读 .env，纯默认值
     assert s.host == "127.0.0.1"
-    assert s.port == 8787
+    assert s.port == 8788
     assert s.db_name == "export_data"
     assert s.db_pass == ""
     assert s.tasks_file == "tasks.json"

@@ -48,18 +48,18 @@ cp tasks.example.json tasks.json  # 任务列表（含站点密码，不提交�
 开发（两个进程）：
 
 ```bash
-uvicorn app.main:app --reload    # 后端 http://localhost:8787
-cd frontend && npm run dev       # 前端 http://localhost:5174（/api 代理到 8787）
+python3 -m app.main               # 后端 http://localhost:8788（自动 reload）
+cd frontend && npm run dev        # 前端 http://localhost:5174（/api 代理到 8788）
 ```
 
 生产（单进程）：
 
 ```bash
 cd frontend && npm run build     # 生成 frontend/dist
-uvicorn app.main:app             # FastAPI 托管 dist + API
+RELOAD=0 python3 -m app.main      # FastAPI 托管 dist + API（不 reload）
 ```
 
-浏览器打开 <http://localhost:8787>。
+浏览器打开 <http://localhost:8788>。
 
 ## 使用流程
 
@@ -82,7 +82,7 @@ uvicorn app.main:app             # FastAPI 托管 dist + API
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `HOST` / `PORT` | `127.0.0.1` / `8787` | 后端监听 |
+| `HOST` / `PORT` | `127.0.0.1` / `8788` | 后端监听 |
 | `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3307` | MySQL 连接 |
 | `DB_USER` / `DB_PASS` | `root` / 空 | 入库账号（`DB_PASS` 为空则入库报错） |
 | `DB_NAME` | `export_data` | 入库数据库 |

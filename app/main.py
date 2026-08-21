@@ -128,3 +128,14 @@ def create_app(store: TaskStore | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=os.environ.get("RELOAD", "1") == "1",
+    )

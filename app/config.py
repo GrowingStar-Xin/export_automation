@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     host: str = "127.0.0.1"
-    port: int = 8787
+    port: int = 8788
     db_host: str = "127.0.0.1"
     db_port: int = 3307
     db_user: str = "root"
