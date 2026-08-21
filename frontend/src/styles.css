@@ -1,11 +1,11 @@
 :root {
-  --bg: #080b10; --bg2: #0c1017; --surface: #10151d; --surface2: #151b25;
-  --line: rgba(148, 163, 184, .12); --line2: rgba(148, 163, 184, .22);
-  --text: #e9eef5; --muted: #94a1b2; --dim: #5b6878;
-  --accent: #2dd4bf; --accent-strong: #14b8a6; --on-accent: #052522;
+  --bg: #0a0d12; --bg2: #0e1218; --surface: #12161e; --surface2: #1a2029;
+  --line: rgba(255, 255, 255, .06); --line2: rgba(255, 255, 255, .12);
+  --text: #e6eaf0; --muted: #9aa4b2; --dim: #6b7482;
+  --accent: #2dd4bf; --accent-strong: #14b8a6; --on-accent: #04211e;
   --ok: #34d399; --warn: #fbbf24; --err: #fb7185; --net: #7dd3fc;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --sans: "Sora", -apple-system, "PingFang SC", "Microsoft YaHei", Segoe UI, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box }
@@ -96,8 +96,9 @@ main { display: grid; grid-template-columns: 1fr; gap: 22px; margin-top: 24px }
 .tf-body label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 7px; letter-spacing: .02em }
 .tf-body .req { color: var(--accent) }
 .tf-body .hint { font-weight: 400; color: var(--dim); margin-left: 6px }
-.tf-body input[type=text], .tf-body input[type=password], .tf-body select { width: 100%; padding: 11px 13px 11px 38px; background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px; color: var(--text); font-size: 14px; font-family: var(--sans); transition: border-color .15s, box-shadow .15s }
-.tf-body input:focus, .tf-body select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45, 212, 191, .14) }
+.tf-body input[type=text], .tf-body input[type=password], .tf-body select { width: 100%; padding: 11px 13px 11px 38px; background: var(--surface2); border: 1px solid var(--line2); border-radius: 10px; color: var(--text); font-size: 14px; font-family: var(--sans); transition: border-color .15s, box-shadow .15s, background .15s }
+.tf-body input:hover, .tf-body select:hover { border-color: rgba(255, 255, 255, .2) }
+.tf-body input:focus, .tf-body select:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px rgba(45, 212, 191, .12) }
 .tf-body input::placeholder { color: var(--dim) }
 .tf-body select { appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6878' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
