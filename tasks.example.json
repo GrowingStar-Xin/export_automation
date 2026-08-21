@@ -1,0 +1,17 @@
+[
+  {
+    "id": "t_example",
+    "name": "示例任务",
+    "url": "https://example.com/report",
+    "button_text": "导出",
+    "button_selector": "",
+    "username": "",
+    "password": "",
+    "login_url": "",
+    "captcha_mode": "auto",
+    "output_dir": "",
+    "import_after": false,
+    "enabled": true,
+    "headless": false
+  }
+]
