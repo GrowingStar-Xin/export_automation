@@ -1,64 +1,100 @@
 # 通用导出自动化 · 操作台
 
-给任意网站配一个「导出按钮」，一键完成：**浏览器自动登录（可选）→ 点击你指定的按钮 → 抓取下载的文件 →（可选）通用表格入库 MySQL**。不再绑死某个具体站点。
+给任意网站配一个「导出按钮」，一键完成：**浏览器自动登录（可选）→ 点击指定按钮 → 抓取下载文件到指定目录 →（可选）通用表格入库 MySQL**。支持**多 URL 任务列表**，一键顺序批量执行。
 
-## 目录
+## 架构
 
-- `web/index.html` —— 操作台前端页面（自包含，深色界面，无构建依赖）
-- `server.mjs` —— 后端服务（Node 内置 http，托管页面 + 三个接口）
-- `auto_export.mjs` —— **通用浏览器自动化**（登录/验证码/找按钮/抓下载，全部自动识别）
-- `import_generic.py` —— **通用表格入库**（任意 xlsx/csv/zip，每个 sheet 自动建表 + 类型推断）
-- `browser_click_generate.mjs` / `import_orders.py` —— 早期「多肽合成订单」专用版，保留作参考
-- `downloads/` —— 抓取到的文件输出目录
+- 后端：**Python + FastAPI**（单进程；Playwright async + mysql.connector 均为同进程调用，不再跨语言 spawn）
+- 前端：**React + Vite + TypeScript**（开发期独立运行，构建后由 FastAPI 托管静态产物）
+
+```
+export-automation/
+├── app/
+│   ├── main.py         # FastAPI 入口 + 路由 + 静态托管
+│   ├── config.py       # .env 加载
+│   ├── tasks.py        # 任务模型 + tasks.json 持久化
+│   ├── browser.py      # Playwright 引擎 run_task()
+│   └── import_data.py  # MySQL 入库 import_files()
+├── tests/              # pytest（纯逻辑 + API）
+├── frontend/           # React + Vite + TS
+└── downloads/          # 默认输出根（gitignored）
+```
+
+## 环境准备
+
+- Python 3.11+
+- 本机 Chrome（浏览器自动化走 `channel="chrome"`，不下载 chromium）
+- （可选）MySQL，勾选「入库」的任务需要
+
+## 安装
+
+```bash
+pip install -r requirements.txt          # 运行依赖
+pip install -r requirements-dev.txt      # 测试依赖（pytest/httpx/openpyxl）
+cd frontend && npm install
+```
+
+> 国内网络：pip 可加 `-i https://pypi.tuna.tsinghua.edu.cn/simple`；npm 已配置 npmmirror 镜像。
+
+## 配置
+
+```bash
+cp .env.example .env              # 编辑 DB_HOST/DB_PORT/DB_USER/DB_PASS/DB_NAME
+cp tasks.example.json tasks.json  # 任务列表（含站点密码，不提交）
+```
 
 ## 启动
 
+开发（两个进程）：
+
 ```bash
-cd ~/.openclaw-autoclaw/workspace/peptide-export-automation
+uvicorn app.main:app --reload    # 后端 http://localhost:8787
+cd frontend && npm run dev       # 前端 http://localhost:5173（/api 代理到 8787）
+```
 
-# 1) 确保测试 MySQL 已启动（入库时需要）
-docker start peptide-mysql-test
+生产（单进程）：
 
-# 2) 启动操作台
-node server.mjs
+```bash
+cd frontend && npm run build     # 生成 frontend/dist
+uvicorn app.main:app             # FastAPI 托管 dist + API
 ```
 
 浏览器打开 <http://localhost:8787>。
 
 ## 使用流程
 
-1. 填「目标页面 URL」（含导出按钮的那个页面）。
-2. 填「导出按钮文字」——按钮上显示的字，比如「导出」「下载」「生成订单」；或展开「高级选项」直接给 CSS 选择器（优先级最高）。
-3. 用户名 / 密码可留空：留空 = 跳过登录，直接进目标页点按钮（适合公开页）。
-4. 点「启动自动化」→ 本机弹出 Chrome，自动识别登录框/验证码、点击你指定的按钮、抓取下载。
-5. 完成后询问「是否导入数据库」→ 点「是」自动把下载的 xlsx/csv 每个 sheet 建表入库。
-
-## 通用化能力
-
-| 环节 | 说明 |
-| --- | --- |
-| 登录 | 自动识别用户名框 / 密码框 / 登录按钮；账号密码留空则跳过 |
-| 验证码 | 自动识别 SVG 文字型验证码；图片型可切换「人工（截图保存）」 |
-| 找按钮 | 按「按钮文字」模糊匹配，或按「CSS 选择器」精确定位 |
-| 抓文件 | 监听浏览器下载事件 + 兜底拦截文件型接口响应（zip/xlsx/csv/pdf 等） |
-| 入库 | 任意 xlsx/csv/zip，自动识别表头、推断列类型、每个 sheet 建一张表 |
+1. 点「新增任务」：填任务名称、目标页面 URL、导出按钮文字、输出目录（留空 = `downloads/名称`）；高级选项里可填登录账号/密码、CSS 选择器、验证码模式、是否入库。
+2. 点「运行全部」（或单条「运行」）→ 后端拉起 Chrome 逐任务执行，控制台实时显示每任务日志。
+3. 文件落到各任务输出目录；勾选「下载后入库」的任务会再写入 MySQL（每个 sheet 自动建表 + 类型推断）。
 
 ## 接口
 
-- `GET /api/status?url=...` → `{mysql, site}` 探测数据库 / 站点是否在线
-- `POST /api/automate` body `{url, username, password, buttonText, buttonSelector, loginUrl, captchaMode, headless}` → 流式日志 + `__RESULT__` 结尾的 `{ok, files[]}`
-- `POST /api/import` body `{files: [path, ...]}` → `{ok, log, summary}`
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/status?url=…` | 探测数据库 / 站点在线 |
+| GET | `/api/tasks` | 任务列表 |
+| POST | `/api/tasks` | 新增任务 |
+| PUT | `/api/tasks/{id}` | 更新任务 |
+| DELETE | `/api/tasks/{id}` | 删除任务 |
+| POST | `/api/run` | 批量执行（NDJSON 流式返回逐任务日志） |
 
-## 环境变量
+## 环境变量（.env）
 
-- 后端：`PORT`（默认 8787）
-- 入库：`DB_HOST / DB_PORT / DB_USER / DB_PASS / DB_NAME`、`TABLE_PREFIX`（表名前缀）、`APPEND=1`（追加而非重建表）
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `HOST` / `PORT` | `127.0.0.1` / `8787` | 后端监听 |
+| `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3307` | MySQL 连接 |
+| `DB_USER` / `DB_PASS` | `root` / 空 | 入库账号（`DB_PASS` 为空则入库报错） |
+| `DB_NAME` | `export_data` | 入库数据库 |
+| `TABLE_PREFIX` | 空 | 表名前缀 |
 
-## 修改指南
+## 测试
 
-- 改自动化识别逻辑（登录框候选、按钮查找、下载捕获）：`auto_export.mjs`
-- 改入库逻辑（表头识别、类型推断、表名规则）：`import_generic.py`
-- 改页面文案 / 配色 / 字段：`web/index.html`（样式在 `<style>` 内）
-- 改后端接口 / 端口：`server.mjs`
+```bash
+pytest          # 23 个用例：config/tasks/browser 纯函数/import 类型推断/API/流式端点
+```
 
-> 注意：通用入库默认「重建表」（同名表先 DROP 再 CREATE，保证干净重导）；设 `APPEND=1` 改为追加。
+## 手动冒烟
+
+- **浏览器点击**：建一个指向真实导出页的任务，运行后检查 `downloads/` 下是否产出文件（验证登录/验证码/找按钮/抓下载整条链）。
+- **入库**：`docker start peptide-mysql-test`（或自备 MySQL）→ 建一个勾选「入库」的任务或直接 `python3 -c "from app.import_data import import_files; print(import_files(['下载文件路径']))"`，验证建表与行数。
