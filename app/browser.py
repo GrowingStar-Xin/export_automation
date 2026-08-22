@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -227,6 +228,14 @@ class RunResult:
     error: str = ""
 
 
+def _is_headless_env() -> bool:
+    """Linux 无图形界面（无 DISPLAY/WAYLAND）时强制 headless"""
+    if sys.platform.startswith("linux"):
+        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+            return True
+    return False
+
+
 async def run_task(task: Task, on_log: Callable[[str], None]) -> RunResult:
     log = on_log
     if not task.url:
@@ -234,91 +243,96 @@ async def run_task(task: Task, on_log: Callable[[str], None]) -> RunResult:
     if not task.button_text and not task.button_selector:
         return RunResult(ok=False, error="请指定导出按钮文字或 CSS 选择器")
 
-    out_dir = resolve_output_dir(task.output_dir, task.name, settings.downloads_root)
-    os.makedirs(out_dir, exist_ok=True)
-    downloaded: list[str] = []
+    try:
+        out_dir = resolve_output_dir(task.output_dir, task.name, settings.downloads_root)
+        os.makedirs(out_dir, exist_ok=True)
+        headless = task.headless or _is_headless_env()
+        downloaded: list[str] = []
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(channel="chrome", headless=task.headless)
-        context = await browser.new_context(accept_downloads=True)
-        page = await context.new_page()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(channel="chrome", headless=headless)
+            try:
+                context = await browser.new_context(accept_downloads=True)
+                page = await context.new_page()
 
-        async def on_download(d):
-            path = os.path.join(out_dir, d.suggested_filename)
-            await d.save_as(path)
-            if path not in downloaded:
-                downloaded.append(path)
-                log(f"[✓] 下载完成: {path}")
+                async def on_download(d):
+                    path = os.path.join(out_dir, d.suggested_filename)
+                    await d.save_as(path)
+                    if path not in downloaded:
+                        downloaded.append(path)
+                        log(f"[✓] 下载完成: {path}")
 
-        async def on_response(res):
-            headers = res.headers
-            ct = (headers.get("content-type") or "").lower()
-            cd = headers.get("content-disposition") or ""
-            is_file = ("attachment" in cd.lower()) or any(
-                k in ct for k in ("zip", "spreadsheetml", "excel", "csv", "octet-stream", "pdf")
-            )
-            if res.status == 200 and is_file:
+                async def on_response(res):
+                    headers = res.headers
+                    ct = (headers.get("content-type") or "").lower()
+                    cd = headers.get("content-disposition") or ""
+                    is_file = ("attachment" in cd.lower()) or any(
+                        k in ct for k in ("zip", "spreadsheetml", "excel", "csv", "octet-stream", "pdf")
+                    )
+                    if res.status == 200 and is_file:
+                        try:
+                            body = await res.body()
+                            if body:
+                                path = os.path.join(out_dir, f"download_{time.strftime('%Y%m%d_%H%M%S')}.{guess_ext(ct, cd)}")
+                                with open(path, "wb") as f:
+                                    f.write(body)
+                                if path not in downloaded:
+                                    downloaded.append(path)
+                                    log(f"[net] 捕获接口文件: {path}")
+                        except Exception:
+                            pass
+
+                page.on("download", on_download)
+                page.on("response", on_response)
+
+                # 1) 登录（可选）
+                if task.username or task.password:
+                    login_url = task.login_url or urljoin(task.url, "/login")
+                    await _do_login(page, task, login_url, log)
+
+                # 2) 进入目标页
+                if page.url != task.url:
+                    try:
+                        await page.goto(task.url, wait_until="domcontentloaded")
+                    except Exception:
+                        pass
+                    await page.wait_for_timeout(1500)
+
+                # 3) 定位并点击导出按钮
+                btn = await _find_export_button(page, task)
+                if btn is None or not await btn.count():
+                    return RunResult(ok=False, error=f'未找到导出按钮（按钮文字="{task.button_text}" 选择器="{task.button_selector}"）')
+                await btn.scroll_into_view_if_needed()
+                await btn.wait_for(state="visible", timeout=15000)
+                log("[i] 已找到导出按钮，点击中…")
                 try:
-                    body = await res.body()
-                    if body:
-                        path = os.path.join(out_dir, f"download_{time.strftime('%Y%m%d_%H%M%S')}.{guess_ext(ct, cd)}")
-                        with open(path, "wb") as f:
-                            f.write(body)
-                        if path not in downloaded:
-                            downloaded.append(path)
-                            log(f"[net] 捕获接口文件: {path}")
+                    await btn.click()
                 except Exception:
-                    pass
+                    try:
+                        await btn.click(force=True)
+                    except Exception:
+                        pass
 
-        page.on("download", on_download)
-        page.on("response", on_response)
+                # 4) 等待下载；若有确认弹窗则点击
+                await page.wait_for_timeout(1500)
+                if not downloaded:
+                    for s in ['button:has-text("确定")', 'button:has-text("确认")', '.el-message-box button:has-text("确定")']:
+                        el = page.locator(s).first
+                        if await el.count() and await el.is_visible():
+                            await el.click()
+                            log("[i] 已点击确认弹窗")
+                            break
+                await page.wait_for_timeout(4500)
+            finally:
+                await browser.close()
 
-        # 1) 登录（可选）
-        if task.username or task.password:
-            login_url = task.login_url or urljoin(task.url, "/login")
-            await _do_login(page, task, login_url, log)
-
-        # 2) 进入目标页
-        if page.url != task.url:
-            try:
-                await page.goto(task.url, wait_until="domcontentloaded")
-            except Exception:
-                pass
-            await page.wait_for_timeout(1500)
-
-        # 3) 定位并点击导出按钮
-        btn = await _find_export_button(page, task)
-        if btn is None or not await btn.count():
-            await browser.close()
-            return RunResult(ok=False, error=f'未找到导出按钮（按钮文字="{task.button_text}" 选择器="{task.button_selector}"）')
-        await btn.scroll_into_view_if_needed()
-        await btn.wait_for(state="visible", timeout=15000)
-        log("[i] 已找到导出按钮，点击中…")
-        try:
-            await btn.click()
-        except Exception:
-            try:
-                await btn.click(force=True)
-            except Exception:
-                pass
-
-        # 4) 等待下载；若有确认弹窗则点击
-        await page.wait_for_timeout(1500)
-        if not downloaded:
-            for s in ['button:has-text("确定")', 'button:has-text("确认")', '.el-message-box button:has-text("确定")']:
-                el = page.locator(s).first
-                if await el.count() and await el.is_visible():
-                    await el.click()
-                    log("[i] 已点击确认弹窗")
-                    break
-        await page.wait_for_timeout(4500)
-
-        await browser.close()
-
-    if downloaded:
-        for f in downloaded:
-            log(f"[完成] 已产出文件: {f}")
-    else:
-        log("[!] 未捕获到下载文件，请检查页面是否有报错/弹窗")
-    return RunResult(ok=bool(downloaded), files=downloaded,
-                     error="" if downloaded else "未捕获到下载文件")
+        if downloaded:
+            for f in downloaded:
+                log(f"[完成] 已产出文件: {f}")
+        else:
+            log("[!] 未捕获到下载文件，请检查页面是否有报错/弹窗")
+        return RunResult(ok=bool(downloaded), files=downloaded,
+                         error="" if downloaded else "未捕获到下载文件")
+    except Exception as e:
+        log(f"[!] 执行出错：{e}")
+        return RunResult(ok=False, error=str(e))

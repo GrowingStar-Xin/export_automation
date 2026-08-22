@@ -1,4 +1,4 @@
-from app.browser import solve_captcha_svg, guess_ext
+from app.browser import solve_captcha_svg, guess_ext, _is_headless_env
 
 
 def test_solve_captcha_sorts_by_x():
@@ -22,3 +22,16 @@ def test_guess_ext_from_content_type():
 def test_guess_ext_from_disposition():
     cd = "attachment; filename*=UTF-8''%E8%AE%A2%E5%8D%95.zip"
     assert guess_ext("application/octet-stream", cd) == "zip"
+
+
+def test_is_headless_env(monkeypatch):
+    import app.browser as browser
+    monkeypatch.setattr(browser.sys, "platform", "linux")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    assert _is_headless_env() is True
+    monkeypatch.setenv("DISPLAY", ":0")
+    assert _is_headless_env() is False
+    monkeypatch.setattr(browser.sys, "platform", "darwin")
+    monkeypatch.delenv("DISPLAY", raising=False)
+    assert _is_headless_env() is False
